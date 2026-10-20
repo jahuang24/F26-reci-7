@@ -18,6 +18,14 @@ const wordFrom = (letters: string) =>
   fc.array(fc.constantFrom(...letters), { minLength: 5, maxLength: 5}).map(cs => cs.join(''));
 const word = wordFrom('ABC');
 
+const rearranged = fc.tuple(
+      fc.shuffledSubarray([...ALPHABET], { minLength: 5, maxLength: 5 }),
+      fc.integer({ min: 1, max: 4 }),
+    ).map(([letters, k]) => ({
+      secret: letters.join(''),
+      guess: [...letters.slice(k), ...letters.slice(0, k)].join(''),
+    }));
+
 describe('matchGuess', () => {
 
   it('returns exactly five colors', () => {
@@ -45,10 +53,17 @@ describe('matchGuess', () => {
     fc.assert(fc.property(word, word, (secret, guess) => {
       const result = matchGuess(secret, guess);
       for (const letter of new Set(guess)) {
-        const credited = [...guess].filter((c, i) => c === letter && result[i] )
-        
+        const credited = [...guess].filter((c, i) => c === letter && result[i] !== 'B').length;
+        const inSecret = [...secret].filter(c => c === letter).length;
+        expect(credited).toBeLessThanOrEqual(inSecret);
       }
     }),
     );
+  });
+
+  it('gives yellow instead of greens', () => {
+    fc.assert(fc.property(rearranged, ({ secret, guess }) => {
+      expect(matchGuess(secret, guess)).toEqual(['Y', 'Y', 'Y', 'Y', 'Y']);
+    }));
   });
 });
