@@ -10,12 +10,15 @@ import { mergeIntervals, type Interval } from '../src/intervals';
 //   // Pattern: invariant. The output is sorted.
 // (invariant, algebraic, metamorphic, differential, or conditional)
 
-// A first attempt at a generator. It has a problem: run the tests and read
-// the counterexample.
-const interval: fc.Arbitrary<Interval> = fc.tuple(fc.integer(), fc.integer());
+// Valid by construction: pick a start and a non-negative length, so end is
+// never less than start. Small ranges make shared endpoints common.
+const interval: fc.Arbitrary<Interval> = fc
+  .tuple(fc.integer({ min: -20, max: 20 }), fc.nat(10))
+  .map(([start, len]): Interval => [start, start + len]);
 const intervalList = fc.array(interval);
 
 describe('mergeIntervals', () => {
+
   // Pattern: invariant. Every input interval lies inside some output interval.
   it('every input interval lies inside some output interval', () => {
     fc.assert(
@@ -29,4 +32,5 @@ describe('mergeIntervals', () => {
 
   // Add your properties here. Aim for at least one of each pattern:
   // invariant, algebraic, metamorphic, differential, conditional.
+  
 });
