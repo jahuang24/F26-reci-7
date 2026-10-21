@@ -19,7 +19,7 @@ const intervalList = fc.array(interval);
 
 describe('mergeIntervals', () => {
 
-  // Pattern: invariant. Every input interval lies inside some output interval.
+  // invariant
   it('every input interval lies inside some output interval', () => {
     fc.assert(
       fc.property(intervalList, xs => {
@@ -32,5 +32,75 @@ describe('mergeIntervals', () => {
 
   // Add your properties here. Aim for at least one of each pattern:
   // invariant, algebraic, metamorphic, differential, conditional.
-  
+
+  const withDuplicate = fc
+    .array(interval, { minLength: 1 })
+    .chain(xs =>
+      fc.nat(xs.length - 1).map((i): Interval[] => [...xs, [xs[i][0], xs[i][1]]]),
+    );
+
+  // algebraic; If two input intervals have the same start and end, the output has fewer intervals than the input.
+  it('merges intervals with the same start and end', () => {
+    fc.assert(
+      fc.property(withDuplicate, xs => {
+        expect(mergeIntervals(xs).length).toBeLessThan(xs.length);
+      }),
+    );
+  });
+
+  // metamorphic (order doesnt matter)
+  it('gives the same output for the input in any order', () => {
+    fc.assert(
+      fc.property(
+        intervalList.chain(xs =>
+          fc.tuple(fc.constant(xs), fc.shuffledSubarray(xs, { minLength: xs.length, maxLength: xs.length })),
+        ),
+        ([xs, shuffled]) => {
+          expect(mergeIntervals(shuffled)).toEqual(mergeIntervals(xs));
+        },
+      ),
+    );
+  });
+
+  const disjointSorted = fc
+    .tuple(
+      fc.integer({ min: -20, max: 20 }),
+      fc.array(fc.tuple(fc.integer({ min: 1, max: 3 }), fc.nat(5))),
+    )
+    .map(([first, steps]) => {
+      const out: Interval[] = [];
+      let prevEnd = first - 1;
+      for (const [gap, len] of steps) {
+        const start = prevEnd + gap;
+        out.push([start, start + len]);
+        prevEnd = start + len;
+      }
+      return out;
+    });
+
+  // conditional; no overlap means unchanged intervals
+  it('leaves already-disjoint intervals unchanged', () => {
+    fc.assert(
+      fc.property(
+        disjointSorted.chain(sorted =>
+          fc.tuple(fc.constant(sorted), fc.shuffledSubarray(sorted, { minLength: sorted.length, maxLength: sorted.length })),
+        ),
+        ([sorted, shuffled]) => {
+          expect(mergeIntervals(shuffled)).toEqual(sorted);
+        },
+      ),
+    );
+  });
+
+  // invariant
+  it('does not modify its input', () => {
+    fc.assert(
+      fc.property(intervalList, xs => {
+        const before = xs.map(([s, e]): Interval => [s, e]);
+        mergeIntervals(xs);
+        expect(xs).toEqual(before);
+      }),
+    );
+  });
+
 });
